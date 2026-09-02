@@ -9,5 +9,4 @@ def get_long_url(short_code:str):
     cached = redis.get(cache_key)
     if cached:
         ##test
-          #testing
         pass
