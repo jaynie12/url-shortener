@@ -1,5 +1,5 @@
 import redis
-import connections
+import CachingPatterns.connections as connections
 
 def get_redis_data(cache_key):
     redis_client=connections.redis_connection()

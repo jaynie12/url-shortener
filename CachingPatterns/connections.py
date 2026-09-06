@@ -2,6 +2,7 @@ import os
 import redis
 from psycopg2 import pool as pg_pool_module
 
+
 def pg_connection():
     pg_pool = pg_pool_module.ThreadedConnectionPool(
     minconn=5,
