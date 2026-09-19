@@ -2,6 +2,7 @@ import os
 import redis
 from psycopg2 import pool as pg_pool_module
 
+
 def pg_connection():
     pg_pool = pg_pool_module.ThreadedConnectionPool(
     minconn=5,
@@ -17,5 +18,5 @@ def pg_connection():
 def redis_connection():
     redis_host = 'localhost'
     redis_port = 6379
-    redis_client = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
+    redis_client = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True , )
     return redis_client

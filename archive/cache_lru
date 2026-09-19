@@ -1,0 +1,57 @@
+import redis
+import connections
+import time
+import archive.cache_aside as cache_aside
+
+
+def demonstrate_lru_behavior():
+    r = connections.redis_connection()
+    r.flushdb()
+    r.config_set("maxmemory", "2mb")
+    r.config_set("maxmemory-policy", "allkeys-lru")
+
+    short_codes = [
+        f"short{i:04d}"
+        for i in range(1,201)
+    ]
+
+    for short_code in short_codes[:100]:
+        cache_aside.cache_aside(short_code)
+        #time.sleep(0.001)
+    
+    for x in range(10):
+        for short_code in short_codes:
+            cache_aside.cache_aside(short_code)
+
+    # Check keys remain
+    early_keys_remaining = sum(
+        1
+        for short_code in short_codes[:10]
+        if r.exists(short_code)
+    )
+
+    # Check which least recently accessed keys are left 
+    later_keys_remaining = sum(
+        1
+        for short_code in short_codes[100:]
+        if r.exists(short_code)
+    )
+
+    print(
+        f"Recently accessed keys remaining: "
+        f"{early_keys_remaining}"
+    )
+
+    print(
+        f"Less recently accessed keys remaining: "
+        f"{later_keys_remaining}"
+    )
+    info = r.info("stats")
+
+    print("Evicted:", info["evicted_keys"])
+    print("Hits:", info["keyspace_hits"])
+    print("Misses:", info["keyspace_misses"])
+
+
+if __name__ == "__main__":
+    demonstrate_lru_behavior()
