@@ -18,9 +18,9 @@ def cache_aside(short_code: str):
             return {}
         
     code = {'id': row[0], 'user_id': row[1], 'short_code': row[2], 'long_url':row[3]}
-    redis_client.set(short_code, json.dumps(code), ex =300)
+    redis_client.set(short_code, json.dumps(code),60)
     return code
 
 if __name__ == '__main__':
-    a = cache_aside("short0001")
+    a = cache_aside("short0002")
     logging.info(a)

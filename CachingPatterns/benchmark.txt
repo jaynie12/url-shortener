@@ -1,0 +1,60 @@
+ab -n 1000 -c 100 http://172.21.128.1:8000/short0001   : command sending lots of requests 
+
+windows host for wsl 
+172.21.128.1   
+
+Benchmarking cache on:
+
+
+Percentage of the requests served within a certain time (ms)
+  50%   1811
+  66%   1852
+  75%   1904
+  80%   1934
+  90%   2071
+  95%   2359
+  98%   2502
+  99%   2521
+ 100%   2604 (longest request)
+
+
+Testing with cache off:
+
+Percentage of the requests served within a certain time (ms)
+  50%   1901
+  66%   2001
+  75%   2070
+  80%   2125
+  90%   2228
+  95%   2646
+  98%   2992
+  99%   3030
+ 100%   3092 (longest request)
+
+
+Strangely slow but its more of a concurrent problem because 1 request is <1 second: 
+
+  50%     34
+  66%     42
+  75%     46
+  80%     48
+  90%     51
+  95%     52
+  98%     54
+  99%     74
+ 100%     74 (longest request)
+
+To check whilst doing the url all together:
+- DB load? EG connection pool not large enough 
+- Cache expiry too short or longest
+
+
+
+ Why report p95/p99 instead of the average? What did the cache
+actually buy at p99?
+
+Once these start spiking, it will impact the rest of the requests that are being accepted
+
+p95 is an early warning where frequent
+
+If you introduce something where users might be making expensive queries more often, it will no longer be p99 but p50
