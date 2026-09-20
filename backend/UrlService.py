@@ -31,7 +31,7 @@ class UrlService:
         redis_client = self.get_redis_client(request)
         cached_url = await self.cache.get(short_code, redis_client)
         if cached_url:
-            return cached_url.decode("utf-8")
+            return cached_url
 
         # If not in cache, check database
         url_data = await self.db.get("urls", short_code, "short_code", pool)
@@ -43,9 +43,9 @@ class UrlService:
 
         # Cache the result for future requests
         await self.cache.set_string(short_code, 60, url_data["long_url"], redis_client)
-        return RedirectResponse(url=url_data["long_url"], status_code=301) #Permanent Page Moves
+        return RedirectResponse(url=url_data["long_url"], status_code=302) #Permanent Page Moves
 
-    async def get_url_stats(self, short_code: str, request: Request):
+    async def get_click_count(self, short_code: str, request: Request):
         pool = self.get_pool(request)
         click_count = await self.db.get_click_count(short_code, pool)
         return {"short_code": short_code, "click_count": click_count}

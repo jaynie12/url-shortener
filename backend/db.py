@@ -58,7 +58,7 @@ class PostgresCRUD:
 
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT click_count FROM urls WHERE short_code = $1",
+                "SELECT COUNT(clicks.url_id) as click_count FROM clicks INNER JOIN urls ON clicks.url_id = urls.id WHERE urls.short_code = $1",
                 short_code,
             )
 
