@@ -9,7 +9,6 @@ class CreateUrlRequest(BaseModel):
     expired_at: datetime | None = None
 
 class CreateClickRecordRequest(BaseModel):
-    user_id: str
     url_id: int
     clicked_at: datetime | None = None
     referrer: str | None = None

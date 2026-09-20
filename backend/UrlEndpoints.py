@@ -7,7 +7,6 @@ router = APIRouter()
 service = UrlService()
 
 @router.post("/create-url")
-@router.post("/create-url")
 async def create_url(
     data: CreateUrlRequest,
     request: Request
