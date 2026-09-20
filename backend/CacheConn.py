@@ -9,3 +9,6 @@ class RedisCache:
 
     async def set_string(self, cache_key: str, ttl: int, value: str,redis_client):
         await redis_client.set(cache_key, value, ex=ttl)
+
+    async def update_string(self, cache_key: str, ttl: int, value: str, redis_client):
+        await redis_client.set(cache_key, value, ex=ttl)

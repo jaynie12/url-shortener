@@ -1,7 +1,7 @@
 from typing import Any, Mapping, Optional
 import asyncpg
 
-
+# J:  make queries more generic and reusable, but for now this is can be ok for a mini app.
 class PostgresCRUD:
 
     async def create(
@@ -66,3 +66,34 @@ class PostgresCRUD:
                 return 0
 
             return row["click_count"]
+
+    async def insert_click_record(
+        self,
+        data: Mapping[str, Any],
+        pool: asyncpg.Pool
+    ) -> dict:
+
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO clicks (user_id, url_id, clicked_at, referrer, country, user_agent)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING *
+                """,
+                data["user_id"],
+                data["url_id"],
+                data.get("clicked_at"),
+                data.get("referrer"),
+                data.get("country"),
+                data.get("user_agent"),
+            )
+
+            return {
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "url_id": row["url_id"],
+                "clicked_at": row["clicked_at"],
+                "referrer": row["referrer"],
+                "country": row["country"],
+                "user_agent": row["user_agent"],
+            }
