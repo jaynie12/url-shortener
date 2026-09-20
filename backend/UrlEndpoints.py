@@ -1,26 +1,20 @@
-from db import PostgresCRUD as db
-from fastapi import APIRouter
-from UrlService import UrlService as service
+from fastapi import APIRouter, Request,Depends
+from UrlService import UrlService 
 
 router = APIRouter()
+## TEMP calling service here  - probably best to make it a getter/setter
+service = UrlService()
 
+@router.post("/urls")
+async def create_url(short_code: str, long_url: str, request: Request):
+    return await service.create_url(short_code, long_url,request)
 
-class UrlEndpoints:
-    def __init__(self):
-        self.pg = db()
-        self.service = service()
-        
-        #post create short code
-    @router.post("/urls")
-    def create_url(self, short_code: str, long_url: str):
-        return self.service.create_url(short_code, long_url)
-  
-    @router.get("/{short_code}")
-    def get_url(self, short_code: str):
-        long_url = self.service.get_url(short_code)
-        return long_url
+@router.get("/{short_code}")
+async def get_url(short_code: str, request: Request):
+    long_url = await service.get_url(short_code,request)
+    return long_url
 
-    @router.get(" /urls/{code}/stats")
-    def get_url_stats(self, code: str):
-        long_url = self.service.get_url_stats(code)
-        return long_url
+@router.get(" /urls/{code}/stats")
+async def get_url_stats( code: str, request: Request):
+    stats = await service.get_url_stats(code,request)
+    return stats

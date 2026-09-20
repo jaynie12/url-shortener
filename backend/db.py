@@ -1,34 +1,68 @@
 from typing import Any, Mapping, Optional
-from Connections import ConnectionManager as connections
+import asyncpg
+
 
 class PostgresCRUD:
 
-    def __init__(
+    async def create(
         self,
-    ):
-        self.pool = connections.pg_connection()
+        data: Mapping[str, Any],
+        pool: asyncpg.Pool
+    ) -> dict:
 
-    def create(self, data: Mapping[str, Any]) -> dict:
-        with self.pool.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO urls (short_code, long_url) VALUES (%s, %s) RETURNING *",
-                (data["short_code"], data["long_url"]),
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO urls (short_code, long_url)
+                VALUES ($1, $2)
+                RETURNING *
+                """,
+                data["short_code"],
+                data["long_url"],
             )
-            row = cursor.fetchone()
-            self.pool.commit()
+
             return {
-                "short_code": row[0],
-                "long_url": row[1],
+                "short_code": row["short_code"],
+                "long_url": row["long_url"],
             }
-    def get(self, table: str, value: Any, column: str) -> Optional[dict]:
-        with self.pool.cursor() as cursor:
-            cursor.execute(f"SELECT * FROM {table} WHERE {column} = %s", (value,))
-            row = cursor.fetchone()
+
+    async def get(
+        self,
+        table: str,
+        value: Any,
+        column: str,
+        pool: asyncpg.Pool
+    ) -> Optional[dict]:
+
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                f"SELECT * FROM {table} WHERE {column} = $1",
+                value,
+            )
+
             if row is None:
                 return None
+
             return {
-                "id": row[0],
-                "user_id": row[1],
-                "short_code": row[2],
-                "long_url": row[3],
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "short_code": row["short_code"],
+                "long_url": row["long_url"],
             }
+
+    async def get_click_count(
+        self,
+        short_code: str,
+        pool: asyncpg.Pool
+    ) -> int:
+
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT click_count FROM urls WHERE short_code = $1",
+                short_code,
+            )
+
+            if row is None:
+                return 0
+
+            return row["click_count"]
