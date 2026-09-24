@@ -14,3 +14,7 @@ class CreateClickRecordRequest(BaseModel):
     referrer: str | None = None
     country: str | None = None
     user_agent: str | None = None
+
+class UpdateUrlRequest(BaseModel):
+    long_url: str | None = None
+    expired_at: datetime | None = None

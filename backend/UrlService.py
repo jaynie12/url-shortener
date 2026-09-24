@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from db import PostgresCRUD as db
 from CacheConn import RedisCache as cache
 
+
 class UrlService:
     def __init__(self):
         self.db = db()
@@ -34,7 +35,7 @@ class UrlService:
         redis_client = self.get_redis_client(request)
         cached_url = await self.cache.get(short_code, redis_client)
         if cached_url:
-            return cached_url
+            return RedirectResponse(url=cached_url, status_code=302)
 
         # If not in cache, check database
         url_data = await self.db.get("urls", short_code, "short_code", pool)
@@ -45,7 +46,7 @@ class UrlService:
             )
 
         # Cache the result for future requests
-        await self.cache.set_string(short_code, 60, url_data["long_url"], redis_client)
+        await self.cache.set_string(short_code, 600, url_data["long_url"], redis_client)
 
         #move into own function
         click_record = await self.db.insert_click_record({
@@ -75,7 +76,7 @@ class UrlService:
         pool = self.get_pool(request)
         redis_client = self.get_redis_client(request)
         await self.db.update(table, value, column, data, pool)
-        await self.cache.update_string(value, 60, data["long_url"], redis_client)
+        await self.cache.update_string(value, 600, data["long_url"], redis_client)
         return {"message": "Short code updated"}
 
     async def get_url_id_from_short_code(self, short_code: str, request: Request):
