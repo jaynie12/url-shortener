@@ -4,6 +4,7 @@ from fastapi.concurrency import asynccontextmanager
 import redis.asyncio as redis
 import asyncpg
 import logging 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
