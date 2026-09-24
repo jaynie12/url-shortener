@@ -1,6 +1,10 @@
 from datetime import datetime
 
 from fastapi import HTTPException, Request
+<<<<<<< HEAD
+=======
+from fastapi import FastAPI, HTTPException, Request
+>>>>>>> 18e9669ec960c24d1781ea811a812a876f79abc1
 from fastapi.responses import RedirectResponse
 from db import PostgresCRUD as db
 from CacheConn import RedisCache as cache
@@ -85,4 +89,8 @@ class UrlService:
                 status_code=404,
                 detail="Short code not found"
             )
+<<<<<<< HEAD
         return url_data["id"]
+=======
+        return url_data["id"]
+>>>>>>> 18e9669ec960c24d1781ea811a812a876f79abc1
