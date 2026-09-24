@@ -1,0 +1,41 @@
+
+ EXPLAIN SELECT * FROM urls WHERE short_code = 'short0002';
+                     QUERY PLAN
+-----------------------------------------------------
+ Seq Scan on urls  (cost=0.00..5.51 rows=1 width=70)
+   Filter: (short_code = 'short0002'::text)
+(2 rows)
+
+
+
+url-shortener=# \d urls
+                                       Table "public.urls"
+   Column   |           Type           | Collation | Nullable |             Default
+------------+--------------------------+-----------+----------+----------------------------------
+ id         | bigint                   |           | not null | nextval('urls_id_seq'::regclass)
+ user_id    | bigint                   |           |          |
+ short_code | text                     |           | not null |
+ long_url   | text                     |           | not null |
+ created_at | timestamp with time zone |           | not null | now()
+ expires_at | timestamp with time zone |           |          |
+Indexes:
+    "urls_pkey" PRIMARY KEY, btree (id)
+    "urls_short_code_key" UNIQUE CONSTRAINT, btree (short_code)
+Foreign-key constraints:
+    "urls_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id)
+Referenced by:
+    TABLE "clicks" CONSTRAINT "clicks_url_id_fkey" FOREIGN KEY (url_id) REFERENCES urls(id)
+
+
+url-shortener=# EXPLAIN SELECT COUNT(clicks.url_id) as click_count FROM clicks INNER JOIN urls ON clicks.url_id = urls.id WHERE urls.short_code = 'short0036';
+                                              QUERY PLAN
+-------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=1059.93..1059.94 rows=1 width=8)
+   ->  Merge Join  (cost=5.81..1059.31 rows=249 width=8)
+         Merge Cond: (clicks.url_id = urls.id)
+         ->  Index Only Scan using idx_clicks_url_id on clicks  (cost=0.29..926.29 rows=50000 width=8)
+         ->  Sort  (cost=5.52..5.53 rows=1 width=8)
+               Sort Key: urls.id
+               ->  Seq Scan on urls  (cost=0.00..5.51 rows=1 width=8)
+                     Filter: (short_code = 'short0036'::text)
+

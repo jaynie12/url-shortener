@@ -27,3 +27,14 @@ async def get_url(short_code: str, request: Request):
 async def get_url_stats(short_code: str, request: Request):
     click_count = await service.get_click_count(short_code,request)
     return {"click_count": click_count["click_count"]}
+
+@router.delete("/urls/{short_code}")
+async def delete_url(short_code: str, request: Request):
+    await service.delete_short_code("urls", short_code, "short_code", request)
+    return {"message": "URL deleted"}
+
+@router.patch("/urls/{short_code}")
+async def update_url(short_code: str, data: CreateUrlRequest, request: Request):
+    await service.update_short_code("urls", short_code, "short_code", data, request)
+    return {"message": "URL updated"}
+    return {"click_count": click_count["click_count"]}

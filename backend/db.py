@@ -1,3 +1,17 @@
+from typing import Any, Optional
+from datetime import datetime
+
+# J:  make queries more generic and reusable, but for now this is can be ok for a mini app.
+class PostgresCRUD:
+
+    async def create(self, data, pool):
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO urls (short_code, long_url) VALUES ($1, $2) RETURNING *""",
+                data["short_code"],
+                data["long_url"],
+            )
 from typing import Any, Mapping, Optional
 import asyncpg
 
@@ -26,6 +40,7 @@ class PostgresCRUD:
                 "long_url": row["long_url"],
             }
 
+    async def get(self, table: str, value: Any, column: str, pool):
     async def get(
         self,
         table: str,
@@ -39,6 +54,8 @@ class PostgresCRUD:
                 f"SELECT * FROM {table} WHERE {column} = $1",
                 value,
             )
+            if row is None:
+                return None
 
             if row is None:
                 return None
@@ -50,6 +67,7 @@ class PostgresCRUD:
                 "long_url": row["long_url"],
             }
 
+    async def get_click_count(self, short_code: str, pool) -> int:
     async def get_click_count(
         self,
         short_code: str,
@@ -65,4 +83,48 @@ class PostgresCRUD:
             if row is None:
                 return 0
 
+            return row["click_count"]
+
+    async def insert_click_record(self, data, pool) -> dict:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO clicks (url_id, clicked_at, referrer, country, user_agent)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING *
+                """,
+                data["url_id"],
+                data.get("clicked_at"),
+                data.get("referrer"),
+                data.get("country"),
+                data.get("user_agent"),
+            )
+
+            return {
+                "id": row["id"],
+                "url_id": row["url_id"],
+                "clicked_at": row["clicked_at"],
+                "referrer": row["referrer"],
+                "country": row["country"],
+                "user_agent": row["user_agent"],
+            }
+
+        
+    async def delete(self, table: str, value: Any, column: str, pool) -> None:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                f"DELETE FROM {table} WHERE {column} = $1",
+                value,
+            )
+
+    async def update(self, table: str, value: Any, column: str, data, pool) -> None:
+        set_dict = ", ".join([f"{k} = ${i+2}" for i, k in enumerate(data.keys())])
+        values = list(data.values())
+
+        async with pool.acquire() as conn:
+            await conn.execute(
+                f"UPDATE {table} SET {set_dict} WHERE {column} = $1",
+                value,
+                *values
+            )
             return row["click_count"]
