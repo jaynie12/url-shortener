@@ -7,7 +7,6 @@ router = APIRouter()
 service = UrlService()
 
 @router.post("/create-url")
-@router.post("/create-url")
 async def create_url(
     data: CreateUrlRequest,
     request: Request
@@ -37,4 +36,3 @@ async def delete_url(short_code: str, request: Request):
 async def update_url(short_code: str, data: CreateUrlRequest, request: Request):
     await service.update_short_code("urls", short_code, "short_code", data, request)
     return {"message": "URL updated"}
-    return {"click_count": click_count["click_count"]}
