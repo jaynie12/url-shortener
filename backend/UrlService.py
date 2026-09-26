@@ -1,11 +1,11 @@
 from datetime import datetime
+import json
 
 from fastapi import HTTPException, Request
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from db import PostgresCRUD as db
 from CacheConn import RedisCache as cache
-
 
 class UrlService:
     def __init__(self):
@@ -21,11 +21,18 @@ class UrlService:
     async def create_url(self, short_code: str, long_url: str, request: Request):
         # Check that short_code is not already in use
         pool = self.get_pool(request)
+        
         existing_url = await self.db.get("urls", short_code, "short_code", pool)
         if existing_url:
             raise HTTPException(
                 status_code=400,
                 detail="Short code already in use"
+            )
+        rate_limiter = self.rate_limit_check(request)
+        if not rate_limiter:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many requests. Please try again later."
             )
         await self.db.create({"short_code": short_code, "long_url": long_url}, pool)
 
@@ -35,7 +42,7 @@ class UrlService:
         redis_client = self.get_redis_client(request)
         cached_url = await self.cache.get(short_code, redis_client)
         if cached_url:
-            return RedirectResponse(url=cached_url, status_code=302)
+           return RedirectResponse(url=cached_url.long_url, status_code=302)
 
         # If not in cache, check database
         url_data = await self.db.get("urls", short_code, "short_code", pool)
@@ -44,10 +51,7 @@ class UrlService:
                 status_code=404,
                 detail="Short code not found"
             )
-
-        # Cache the result for future requests
-        await self.cache.set_string(short_code, 600, url_data["long_url"], redis_client)
-
+        
         #move into own function
         click_record = await self.db.insert_click_record({
             "url_id": await self.get_url_id_from_short_code(short_code, request),
@@ -56,6 +60,15 @@ class UrlService:
             "user_agent": request.headers.get("user-agent"),
             "clicked_at": datetime.now()
         }, pool)
+
+        # Cache the result for future requests
+        await self.cache.set_string(
+                short_code,
+                600,
+                json.dumps(url_data, default=str),
+                redis_client,
+            )
+
         print(f"Click record created: {click_record}")
 
         return RedirectResponse(url=url_data["long_url"], status_code=302) #Permanent Page Moves
@@ -76,7 +89,7 @@ class UrlService:
         pool = self.get_pool(request)
         redis_client = self.get_redis_client(request)
         await self.db.update(table, value, column, data, pool)
-        await self.cache.update_string(value, 600, data["long_url"], redis_client)
+        await self.cache.update_string(value, 600, json.dumps(data, default=str), redis_client)
         return {"message": "Short code updated"}
 
     async def get_url_id_from_short_code(self, short_code: str, request: Request):
@@ -88,3 +101,12 @@ class UrlService:
                 detail="Short code not found"
             )
         return url_data["id"]
+        
+    def rate_limit_check(self, request: Request):
+        redis_client = self.get_redis_client(request)
+        ip_address_key = f"ip:{request.client.host}"
+        limiter = self.cache.is_allowed(redis_client, ip_address_key, 10, 60)  # 10 requests per minute
+        if limiter["allowed"]:
+            return True
+        else:
+            return False
