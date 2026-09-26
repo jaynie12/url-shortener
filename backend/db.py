@@ -41,14 +41,6 @@ class PostgresCRUD:
             }
 
     async def get(self, table: str, value: Any, column: str, pool):
-    async def get(
-        self,
-        table: str,
-        value: Any,
-        column: str,
-        pool: asyncpg.Pool
-    ) -> Optional[dict]:
-
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 f"SELECT * FROM {table} WHERE {column} = $1",
@@ -68,11 +60,6 @@ class PostgresCRUD:
             }
 
     async def get_click_count(self, short_code: str, pool) -> int:
-    async def get_click_count(
-        self,
-        short_code: str,
-        pool: asyncpg.Pool
-    ) -> int:
 
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -117,14 +104,17 @@ class PostgresCRUD:
                 value,
             )
 
-    async def update(self, table: str, value: Any, column: str, data, pool) -> None:
-        set_dict = ", ".join([f"{k} = ${i+2}" for i, k in enumerate(data.keys())])
-        values = list(data.values())
+    async def update(self, table, value, column, data, pool):
+        data = data.model_dump(exclude_unset=True)
+
+        set_clause = ", ".join(
+            f"{key} = ${i + 2}"
+            for i, key in enumerate(data)
+        )
 
         async with pool.acquire() as conn:
             await conn.execute(
-                f"UPDATE {table} SET {set_dict} WHERE {column} = $1",
+                f"UPDATE {table} SET {set_clause} WHERE {column} = $1",
                 value,
-                *values
+                *data.values()
             )
-            return row["click_count"]
