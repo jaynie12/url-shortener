@@ -1,5 +1,6 @@
 import asyncio
-from token_bucket import TokenBucket
+
+#https://redis.io/docs/latest/develop/use-cases/rate-limiter/redis-py/#fixed-window-counter   Redis management of rate limiting
 
 SCRIPT = """
 local key    = KEYS[1]
