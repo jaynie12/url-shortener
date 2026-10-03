@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request,Depends
 from UrlService import UrlService
-from models import CreateUrlRequest 
+from models import CreateUrlRequest, CreateClickRecordRequest, UpdateUrlRequest
 
 router = APIRouter()
 ## TEMP calling service here  - probably best to make it a getter/setter
@@ -33,6 +33,6 @@ async def delete_url(short_code: str, request: Request):
     return {"message": "URL deleted"}
 
 @router.patch("/urls/{short_code}")
-async def update_url(short_code: str, data: CreateUrlRequest, request: Request):
+async def update_url(short_code: str, data: UpdateUrlRequest, request: Request):
     await service.update_short_code("urls", short_code, "short_code", data, request)
     return {"message": "URL updated"}
