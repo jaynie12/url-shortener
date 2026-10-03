@@ -32,10 +32,10 @@ class RedisCache:
     async def update_string(self, cache_key: str, ttl: int, value: str, redis_client):
         await redis_client.set(cache_key, value, ex=ttl)
 
-    def is_allowed(self, client, key: str, limit: int, window_seconds: int) -> dict:
+    async def is_allowed(self, client, key: str, limit: int, window_seconds: int) -> dict:
         script = client.register_script(SCRIPT)
-        allowed = script(keys=[key], args=[limit, window_seconds], client=client)
-        return {"allowed": bool(allowed)}
+        allowed = await script(keys=[key], args=[limit, window_seconds], client=client)
+        return {"allowed": bool(allowed[0])}
 
 #Jaynie note
 #INCR creates a new key with value 1 if it doesn't exist, and sets the expiration time to the specified window.

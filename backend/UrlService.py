@@ -28,7 +28,7 @@ class UrlService:
                 status_code=400,
                 detail="Short code already in use"
             )
-        rate_limiter = self.rate_limit_check(request)
+        rate_limiter = await self.rate_limit_check(request)
         if not rate_limiter:
             raise HTTPException(
                 status_code=429,
@@ -102,10 +102,10 @@ class UrlService:
             )
         return url_data["id"]
         
-    def rate_limit_check(self, request: Request):
+    async def rate_limit_check(self, request: Request):
         redis_client = self.get_redis_client(request)
         ip_address_key = f"ip:{request.client.host}"
-        limiter = self.cache.is_allowed(redis_client, ip_address_key, 10, 60)  # 10 requests per minute
+        limiter = await self.cache.is_allowed(redis_client, ip_address_key, 10, 60)  # 10 requests per minute
         if limiter["allowed"]:
             return True
         else:
