@@ -1,5 +1,6 @@
 Summary
-URL Shortner 
+
+URL Shortener 
 
 Schema
 
@@ -7,9 +8,10 @@ Schema
 Caching Strategy
 
 
-\
-Installation Steps
 
+Installation Steps:
+
+1) run: 
 
 Navigatation of the repo
 

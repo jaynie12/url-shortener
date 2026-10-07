@@ -37,7 +37,7 @@ class RedisCache:
 
     async def is_allowed(self, client, key: str, limit: int, window_seconds: int) -> dict:
         script = client.register_script(self.script)
-        #  returns [allowed (1/0), TTL in milliseconds]
+        #  returns [allowed (1/0), TTL in milliseconds] 
         ip_allowed = await script(keys=[key], args=[limit, window_seconds], client=client)
         #ip_allowed[0] is either 1 (allowed) or 0 (not allowed)
         allowed, ttl = ip_allowed[0], ip_allowed[1]

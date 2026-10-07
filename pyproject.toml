@@ -1,0 +1,5 @@
+
+string = "Text with quotes"
+integer = 42
+float = 3.11
+boolean = true
