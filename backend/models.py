@@ -7,7 +7,7 @@ class CreateUrlRequest(BaseModel):
     user_id: str
     created_at: datetime | None = None
     expired_at: datetime | None = Field(
-        default_factory=lambda: datetime.utcnow() + timedelta(days=10)
+        default_factory=lambda: datetime.now() + timedelta(days=10)
     )
 
 class CreateClickRecordRequest(BaseModel):

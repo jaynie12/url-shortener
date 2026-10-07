@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Request,Depends
+from fastapi import APIRouter, Request
 from UrlService import UrlService
-from models import CreateUrlRequest, CreateClickRecordRequest, UpdateUrlRequest
+from models import CreateUrlRequest, UpdateUrlRequest
 
 router = APIRouter()
 ## TEMP calling service here  - probably best to make it a getter/setter

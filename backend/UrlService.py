@@ -46,6 +46,7 @@ class UrlService:
 
         # If not in cache, check database
         url_data = await self.db.get("urls", short_code, "short_code", pool)
+        url_id = url_data["id"];
         if url_data is None:
             raise HTTPException(
                 status_code=404,
@@ -54,7 +55,7 @@ class UrlService:
         
         #move into own function
         click_record = await self.db.insert_click_record({
-            "url_id": await self.get_url_id_from_short_code(short_code, request),
+            "url_id": url_id,
             "referrer": request.headers.get("referer"),
             "country": request.headers.get("country"),
             "user_agent": request.headers.get("user-agent"),
