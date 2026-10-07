@@ -2,22 +2,11 @@ from typing import Any, Optional
 from datetime import datetime
 
 # J:  make queries more generic and reusable, but for now this is can be ok for a mini app.
-class PostgresCRUD:
-
-    async def create(self, data, pool):
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                INSERT INTO urls (short_code, long_url) VALUES ($1, $2) RETURNING *""",
-                data["short_code"],
-                data["long_url"],
-            )
 from typing import Any, Mapping, Optional
 import asyncpg
 
 
 class PostgresCRUD:
-
     async def create(
         self,
         data: Mapping[str, Any],

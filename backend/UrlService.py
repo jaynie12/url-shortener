@@ -2,10 +2,10 @@ from datetime import datetime
 import json
 
 from fastapi import HTTPException, Request
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
 from backend.db import PostgresCRUD as db
-from CacheConn import RedisCache as cache
+from backend.CacheConn import RedisCache as cache
 
 class UrlService:
     def __init__(self):

@@ -5,10 +5,8 @@ class CreateUrlRequest(BaseModel):
     short_code: str
     long_url: str
     user_id: str
-    created_at: datetime | None = None
-    expired_at: datetime | None = Field(
-        default_factory=lambda: datetime.now() + timedelta(days=10)
-    )
+    created_at: datetime 
+    expired_at: datetime 
 
 class CreateClickRecordRequest(BaseModel):
     url_id: int
@@ -19,3 +17,11 @@ class CreateClickRecordRequest(BaseModel):
 
 class UpdateUrlRequest(BaseModel):
     long_url: str | None = None
+
+class DeleteUrlRequest(BaseModel):
+    short_code: str
+
+class UrlStatsResponse(BaseModel):
+    short_code: str
+    click_count: int
+    
