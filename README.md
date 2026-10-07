@@ -11,7 +11,9 @@ Caching Strategy
 
 Installation Steps:
 
-1) run: 
+1) 
+2)
+3) pip install -e . 
 
 Navigatation of the repo
 

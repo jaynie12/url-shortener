@@ -1,5 +1,13 @@
+[project]
+name = "url-shortener"
+version = "2026.0.0"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+    "sqlalchemy>=2.0.0",
+    "redis>=5.0.0",
+    "python-dotenv>=1.0.0",
+] 
+readme= "README.md"
 
-string = "Text with quotes"
-integer = 42
-float = 3.11
-boolean = true
+[project.optional-dependencies]

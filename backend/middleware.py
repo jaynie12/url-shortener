@@ -2,8 +2,7 @@
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from fastapi.responses import PlainTextResponse
-from backend.CacheConn import RedisCache as cache
-from starlette.responses import Response
+from cache_conn import RedisCache as cache
 
 class Middleware(BaseHTTPMiddleware):
     def __init__(self, app):

@@ -1,8 +1,5 @@
-from typing import Any, Optional
-from datetime import datetime
 
-# J:  make queries more generic and reusable, but for now this is can be ok for a mini app.
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping
 import asyncpg
 
 

@@ -3,8 +3,8 @@ import json
 from fastapi import HTTPException, Request
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
-from backend.db import PostgresCRUD as db
-from backend.CacheConn import RedisCache as cache
+from db import PostgresCRUD as db
+from cache_conn import RedisCache as cache
 
 class UrlService:
     def __init__(self):
