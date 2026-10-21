@@ -1,66 +1,62 @@
-from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, MagicMock
 
-from backend.CacheConn import SCRIPT, RedisCache
+import pytest
+
+from backend.cache_conn import SCRIPT, RedisCache
 
 
-class RedisCacheTests(IsolatedAsyncioTestCase):
-    def setUp(self):
-        self.cache = RedisCache()
-        self.redis_client = MagicMock()
-        self.redis_client.get = AsyncMock()
-        self.redis_client.delete = AsyncMock()
-        self.redis_client.set = AsyncMock()
+@pytest.fixture
+def cache():
+    return RedisCache()
 
-    async def test_get_returns_cached_value(self):
-        self.redis_client.get.return_value = "https://example.com"
 
-        result = await self.cache.get("abc123", self.redis_client)
+@pytest.mark.asyncio
+async def test_get_returns_cached_value(cache, redis_client):
+    redis_client.get.return_value = "https://example.com"
 
-        self.redis_client.get.assert_awaited_once_with("abc123")
-        self.assertEqual(result, "https://example.com")
+    result = await cache.get("abc123", redis_client)
 
-    async def test_delete_removes_cache_key(self):
-        await self.cache.delete("abc123", self.redis_client)
+    redis_client.get.assert_awaited_once_with("abc123")
+    assert result == "https://example.com"
 
-        self.redis_client.delete.assert_awaited_once_with("abc123")
 
-    async def test_set_string_sets_value_with_expiration(self):
-        await self.cache.set_string("abc123", 600, "cached-value", self.redis_client)
+@pytest.mark.asyncio
+async def test_delete(cache, redis_client):
+    await cache.delete("abc123", redis_client)
 
-        self.redis_client.set.assert_awaited_once_with(
-            "abc123",
-            "cached-value",
-            ex=600,
-        )
+    redis_client.delete.assert_awaited_once_with("abc123")
 
-    async def test_update_string_replaces_value_with_expiration(self):
-        await self.cache.update_string("abc123", 300, "updated-value", self.redis_client)
 
-        self.redis_client.set.assert_awaited_once_with(
-            "abc123",
-            "updated-value",
-            ex=300,
-        )
+@pytest.mark.parametrize(
+    ("method", "ttl", "value"),
+    [
+        ("set_string", 600, "cached-value"),
+        ("update_string", 300, "updated-value"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_cache_write_withexpiration(
+    cache, redis_client, method, ttl, value
+):
+    await getattr(cache, method)("abc123", ttl, value, redis_client)
 
-    async def test_is_allowed_returns_true_when_script_allows_request(self):
-        script = AsyncMock(return_value=[1, 60000])
-        self.redis_client.register_script.return_value = script
+    redis_client.set.assert_awaited_once_with("abc123", value, ex=ttl)
 
-        result = await self.cache.is_allowed(self.redis_client, "ip:127.0.0.1", 10, 60)
 
-        self.redis_client.register_script.assert_called_once_with(SCRIPT)
-        script.assert_awaited_once_with(
-            keys=["ip:127.0.0.1"],
-            args=[10, 60],
-            client=self.redis_client,
-        )
-        self.assertEqual(result, {"allowed": True})
+@pytest.mark.parametrize(("script_result", "allowed"), [([1, 60000], True), ([0, 42000], False)])
+@pytest.mark.asyncio
+async def test_is_allowed_returns_script_result(
+    cache, redis_client, script_result, allowed
+):
+    script = AsyncMock(return_value=script_result)
+    redis_client.register_script.return_value = script
 
-    async def test_is_allowed_returns_false_when_script_denies_request(self):
-        script = AsyncMock(return_value=[0, 42000])
-        self.redis_client.register_script.return_value = script
+    result = await cache.is_allowed(redis_client, "ip:127.0.0.1", 10, 60)
 
-        result = await self.cache.is_allowed(self.redis_client, "ip:127.0.0.1", 10, 60)
-
-        self.assertEqual(result, {"allowed": False})
+    redis_client.register_script.assert_called_once_with(SCRIPT)
+    script.assert_awaited_once_with(
+        keys=["ip:127.0.0.1"],
+        args=[10, 60],
+        client=redis_client,
+    )
+    assert result == {"allowed": allowed}

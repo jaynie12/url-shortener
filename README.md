@@ -1,19 +1,26 @@
-Summary
+# URL Shortener
 
-URL Shortener 
+## Summary
 
-Schema
+Create short links and redirect visitors to their original URLs.
 
+## Schema
 
-Caching Strategy
+PostgreSQL stores users, URLs, and click records. 
+Each short code is unique.
 
+## Caching Strategy
 
+Redis caches URL lookups for 10 minutes to speed up redirects.
 
-Installation Steps:
+## Installation Steps
 
-1) 
-2)
-3) pip install -e . 
+1. Start PostgreSQL and Redis.
+2. Configure the database connection and `PG_PASSWORD`.
+3. Install the project with `pip install -e .` and start the API with `uvicorn main:app --reload`.
 
-Navigatation of the repo
+## Navigation
 
+- `backend/` — API, database, and cache code.
+- `alembic/` — database schema.
+- `tests/` — automated tests.

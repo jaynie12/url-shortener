@@ -24,16 +24,19 @@ class RedisCache:
         self.script = SCRIPT
         
     async def get(self, cache_key,  redis_client):
-        return await redis_client.get(cache_key)
+        return await redis_client.json().get(cache_key)
 
     async def delete(self, cache_key, redis_client):
         await redis_client.delete(cache_key)
 
     async def set_string(self, cache_key: str, ttl: int, value: str,redis_client):
-        await redis_client.set(cache_key, value, ex=ttl)
+        await redis_client.json().set(cache_key, "$", value)
+        await redis_client.expire(cache_key, ttl)  
+
 
     async def update_string(self, cache_key: str, ttl: int, value: str, redis_client):
-        await redis_client.set(cache_key, value, ex=ttl)
+        await redis_client.json().update(cache_key, "$", value)
+        await redis_client.expire(cache_key, ttl)  
 
     async def is_allowed(self, client, key: str, limit: int, window_seconds: int) -> dict:
         script = client.register_script(self.script)

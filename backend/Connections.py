@@ -1,22 +1,27 @@
 import os
-from fastapi import FastAPI, Request
-from fastapi.concurrency import asynccontextmanager
+
 import redis.asyncio as redis
-import asyncpg
-import logging 
+from fastapi import FastAPI
+from fastapi.concurrency import asynccontextmanager
+from sqlalchemy.engine import URL
+from sqlalchemy.ext.asyncio import create_async_engine
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
-    app.state.pool = await asyncpg.create_pool(
-        min_size=5,
-        max_size=30,
-        host="localhost",
-        port=5432,
-        database="url-shortener",
-        user="postgres",
-        password=os.getenv("PG_PASSWORD"),
+    engine = create_async_engine(
+        URL.create(
+            drivername="postgresql+asyncpg",
+            username="postgres",
+            password=os.getenv("PG_PASSWORD"),
+            host="localhost",
+            port=5432,
+            database="url-shortener",
+        ),
+        pool_size=5,
+        max_overflow=25,
     )
 
+    app.state.pool = engine
     app.state.redis_client = redis.Redis(
         host="localhost",
         port=6379,
@@ -25,5 +30,5 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    await app.state.pool.close()
+    await app.state.pool.dispose()
     await app.state.redis_client.close()

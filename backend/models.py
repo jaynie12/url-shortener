@@ -5,8 +5,6 @@ class CreateUrlRequest(BaseModel):
     short_code: str
     long_url: str
     user_id: str
-    created_at: datetime 
-    expired_at: datetime 
 
 class CreateClickRecordRequest(BaseModel):
     url_id: int
@@ -16,7 +14,7 @@ class CreateClickRecordRequest(BaseModel):
     user_agent: str | None = None
 
 class UpdateUrlRequest(BaseModel):
-    long_url: str | None = None
+    long_url: str
 
 class DeleteUrlRequest(BaseModel):
     short_code: str

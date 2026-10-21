@@ -1,106 +1,174 @@
-
 from typing import Any, Mapping
-import asyncpg
+
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    DateTime,
+    MetaData,
+    String,
+    Table,
+    Text,
+    delete,
+    func,
+    insert,
+    select,
+    update,
+)
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+
+metadata = MetaData()
+urls = Table(
+    "urls",
+    metadata,
+    Column("id", BigInteger),
+    Column("user_id", BigInteger),
+    Column("short_code", Text),
+    Column("long_url", Text),
+    Column("created_at", DateTime(timezone=True)),
+    Column("expires_at", DateTime(timezone=True)),
+)
+clicks = Table(
+    "clicks",
+    metadata,
+    Column("id", BigInteger),
+    Column("url_id", BigInteger),
+    Column("clicked_at", DateTime(timezone=True)),
+    Column("referrer", String),
+    Column("country", String),
+    Column("user_agent", String),
+)
+tables = {"urls": urls, "clicks": clicks}
+
+
+def _table_column(table_name: str, column_name: str):
+    table = tables[table_name]
+    return table, table.c[column_name]
 
 
 class PostgresCRUD:
     async def create(
         self,
         data: Mapping[str, Any],
-        pool: asyncpg.Pool
+        pool: AsyncEngine,
     ) -> dict:
-
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                INSERT INTO urls (short_code, long_url)
-                VALUES ($1, $2)
-                RETURNING *
-                """,
-                data["short_code"],
-                data["long_url"],
+        statement = (
+            insert(urls)
+            .values(
+                short_code=data["short_code"],
+                long_url=data["long_url"],
             )
+        )
+        async with pool.begin() as conn:
+            result = await conn.execute(statement)
+            row = result.mappings().one()
 
-            return {
-                "short_code": row["short_code"],
-                "long_url": row["long_url"],
-            }
+        return {
+            "short_code": row["short_code"],
+            "long_url": row["long_url"],
+        }
 
-    async def get(self, table: str, value: Any, column: str, pool):
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                f"SELECT * FROM {table} WHERE {column} = $1",
-                value,
-            )
-            if row is None:
-                return None
+    async def get(
+        self,
+        table: str,
+        value: Any,
+        column: str,
+        pool: AsyncEngine,
+    ) -> dict | None:
+        selected_table, selected_column = _table_column(table, column)
+        statement = select(selected_table).where(selected_column == value)
 
-            if row is None:
-                return None
+        async with pool.connect() as conn:
+            result = await conn.execute(statement)
+            row = result.mappings().first()
 
-            return {
-                "id": row["id"],
-                "user_id": row["user_id"],
-                "short_code": row["short_code"],
-                "long_url": row["long_url"],
-            }
+        if row is None:
+            return None
 
-    async def get_click_count(self, short_code: str, pool) -> int:
+        return {
+            "id": row["id"],
+            "user_id": row["user_id"],
+            "short_code": row["short_code"],
+            "long_url": row["long_url"],
+        }
 
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT COUNT(clicks.url_id) as click_count FROM clicks INNER JOIN urls ON clicks.url_id = urls.id WHERE urls.short_code = $1",
-                short_code,
-            )
-
-            if row is None:
-                return 0
-
-            return row["click_count"]
-
-    async def insert_click_record(self, data, pool) -> dict:
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                INSERT INTO clicks (url_id, clicked_at, referrer, country, user_agent)
-                VALUES ($1, $2, $3, $4, $5)
-                RETURNING *
-                """,
-                data["url_id"],
-                data.get("clicked_at"),
-                data.get("referrer"),
-                data.get("country"),
-                data.get("user_agent"),
-            )
-
-            return {
-                "id": row["id"],
-                "url_id": row["url_id"],
-                "clicked_at": row["clicked_at"],
-                "referrer": row["referrer"],
-                "country": row["country"],
-                "user_agent": row["user_agent"],
-            }
-
-        
-    async def delete(self, table: str, value: Any, column: str, pool) -> None:
-        async with pool.acquire() as conn:
-            await conn.execute(
-                f"DELETE FROM {table} WHERE {column} = $1",
-                value,
-            )
-
-    async def update(self, table, value, column, data, pool):
-        data = data.model_dump(exclude_unset=True)
-
-        set_clause = ", ".join(
-            f"{key} = ${i + 2}"
-            for i, key in enumerate(data)
+    async def get_click_count(self, short_code: str, pool: AsyncEngine) -> int:
+        statement = (
+            select(func.count(clicks.c.url_id))
+            .select_from(clicks.join(urls, clicks.c.url_id == urls.c.id))
+            .where(urls.c.short_code == short_code)
         )
 
-        async with pool.acquire() as conn:
-            await conn.execute(
-                f"UPDATE {table} SET {set_clause} WHERE {column} = $1",
-                value,
-                *data.values()
+        async with pool.connect() as conn:
+            result = await conn.execute(statement)
+            click_count = result.scalar_one_or_none()
+
+        return 0 if click_count is None else click_count
+
+    async def insert_click_record(
+        self,
+        data: Mapping[str, Any],
+        pool: AsyncEngine,
+    ) -> dict:
+        statement = (
+            insert(clicks)
+            .values(
+                url_id=data["url_id"],
+                clicked_at=data.get("clicked_at"),
+                referrer=data.get("referrer"),
+                country=data.get("country"),
+                user_agent=data.get("user_agent"),
             )
+            .returning(clicks)
+        )
+
+        async with pool.begin() as conn:
+            result = await conn.execute(statement)
+            row = result.mappings().one()
+            if row is None:
+                raise Exception("Failed to insert click record")
+            else:
+                return {
+                    "id": row["id"],
+                    "url_id": row["url_id"],
+                    "clicked_at": row["clicked_at"],
+                    "referrer": row["referrer"],
+                    "country": row["country"],
+                    "user_agent": row["user_agent"],
+                }
+
+    async def delete(
+        self,
+        table: str,
+        value: Any,
+        column: str,
+        pool: AsyncEngine,
+    ) -> None:
+        selected_table, selected_column = _table_column(table, column)
+        statement = delete(selected_table).where(selected_column == value)
+
+        async with pool.begin() as conn:
+            await conn.execute(statement)
+
+    async def update(
+        self,
+        table: str,
+        value: Any,
+        column: str,
+        data: Any,
+        pool: AsyncEngine,
+    ) -> None:
+        selected_table, selected_column = _table_column(table, column)
+        update_data = data.model_dump(exclude_unset=True)
+        values = {
+            selected_table.c[key]: item
+            for key, item in update_data.items()
+        }
+        statement = (
+            update(selected_table)
+            .where(selected_column == value)
+            .values(values)
+        )
+
+        async with pool.begin() as conn:
+            await conn.execute(statement)
