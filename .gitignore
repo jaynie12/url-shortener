@@ -6,14 +6,3 @@ __pycache__
 .env
 .pytest_cache
 .__pycache__
-backend/__pycache__/Connections.cpython-314.pyc
-backend/__pycache__/UrlService.cpython-314.pyc
-backend/__pycache__/CacheConn.cpython-314.pyc
-backend/__pycache__/Connections.cpython-314.pyc
-backend/__pycache__/db.cpython-314.pyc
-backend/__pycache__/main.cpython-314.pyc
-backend/__pycache__/models.cpython-314.pyc
-tests/__pycache__/test_db.cpython-314-pytest-9.1.1.pyc
-backend/__pycache__/UrlEndpoints.cpython-314.pyc
-backend/__pycache__/UrlService.cpython-314.pyc
-backend/__pycache__/CacheConn.cpython-314.pyc
