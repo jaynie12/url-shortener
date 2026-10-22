@@ -1,11 +1,11 @@
-from datetime import datetime
 import json
+from datetime import datetime
+
+from CacheConn import RedisCache as cache
+from db import PostgresCRUD as db
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
-from db import PostgresCRUD as db
-from CacheConn import RedisCache as cache
-import logging
-from sqlalchemy.exc import IntegrityError
+
 
 class UrlService:
     def __init__(self):

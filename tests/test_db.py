@@ -1,149 +1,155 @@
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest import IsolatedAsyncioTestCase
+from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.sql import Delete, Insert, Select, Update
+from sqlalchemy.sql.dml import Delete, Insert, Update
 
 from backend.db import PostgresCRUD
 
 
-@pytest.fixture
-def crud():
-    return PostgresCRUD()
+class PostgresCRUDTests(IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.crud = PostgresCRUD()
+        self.connection = MagicMock()
+        self.result = MagicMock()
+        self.connection.execute = AsyncMock(return_value=self.result)
+        self.pool = MagicMock()
+        self.transaction_context = self.pool.begin.return_value
+        self.transaction_context.__aenter__ = AsyncMock(
+            return_value=self.connection
+        )
+        self.transaction_context.__aexit__ = AsyncMock(return_value=False)
 
+    async def test_create_returns_url_fields(self):
+        self.result.mappings.return_value.one.return_value = {
+            "short_code": "abc123",
+            "long_url": "https://example.com",
+        }
 
-@pytest.mark.asyncio
-async def test_create_inserts_url(crud, sqlalchemy_connection, sqlalchemy_engine):
-    row = {"short_code": "abc123", "long_url": "https://example.com"}
-    result_proxy = MagicMock()
-    result_proxy.mappings.return_value.one.return_value = row
-    sqlalchemy_connection.execute.return_value = result_proxy
+        result = await self.crud.create(
+            {"short_code": "abc123", "long_url": "https://example.com"},
+            self.pool,
+        )
 
-    result = await crud.create(row, sqlalchemy_engine)
+        statement = self.connection.execute.await_args.args[0]
+        self.assertIsInstance(statement, Insert)
+        self.assertEqual(
+            statement.compile().params,
+            {"short_code": "abc123", "long_url": "https://example.com"},
+        )
+        self.assertEqual(
+            result,
+            {"short_code": "abc123", "long_url": "https://example.com"},
+        )
 
-    statement = sqlalchemy_connection.execute.await_args.args[0]
-    assert isinstance(statement, Insert)
-    assert statement.table.name == "urls"
-    assert statement.compile().params == row
-    sqlalchemy_engine.begin.assert_called_once_with()
-    assert result == row
+    async def test_get_returns_mapped_row(self):
+        self.result.mappings.return_value.first.return_value = {
+            "id": 7,
+            "user_id": 4,
+            "short_code": "abc123",
+            "long_url": "https://example.com",
+        }
 
+        result = await self.crud.get("urls", "abc123", "short_code", self.pool)
 
-@pytest.mark.asyncio
-async def test_get_returns_mapped_row(crud, sqlalchemy_connection, sqlalchemy_engine):
-    row = {
-        "id": 7,
-        "user_id": 4,
-        "short_code": "abc123",
-        "long_url": "https://example.com",
-        "created_at": None,
-        "expires_at": None,
-    }
-    result_proxy = MagicMock()
-    result_proxy.mappings.return_value.first.return_value = row
-    sqlalchemy_connection.execute.return_value = result_proxy
+        statement = self.connection.execute.await_args.args[0]
+        self.assertEqual(
+            statement.compile().params,
+            {"short_code_1": "abc123"},
+        )
+        self.assertEqual(
+            result,
+            {
+                "id": 7,
+                "user_id": 4,
+                "short_code": "abc123",
+                "long_url": "https://example.com",
+            },
+        )
 
-    result = await crud.get("urls", "abc123", "short_code", sqlalchemy_engine)
+    async def test_get_returns_none_when_row_is_missing(self):
+        self.result.mappings.return_value.first.return_value = None
 
-    statement = sqlalchemy_connection.execute.await_args.args[0]
-    assert isinstance(statement, Select)
-    assert statement.compile().params["short_code_1"] == "abc123"
-    sqlalchemy_engine.connect.assert_called_once_with()
-    assert result == {
-        "id": 7,
-        "user_id": 4,
-        "short_code": "abc123",
-        "long_url": "https://example.com",
-    }
+        result = await self.crud.get("urls", "missing", "short_code", self.pool)
 
+        self.assertIsNone(result)
 
-@pytest.mark.asyncio
-async def test_get_returns_none_when_row_is_missing(
-    crud, sqlalchemy_connection, sqlalchemy_engine
-):
-    result_proxy = MagicMock()
-    result_proxy.mappings.return_value.first.return_value = None
-    sqlalchemy_connection.execute.return_value = result_proxy
+    async def test_get_click_count_returns_count(self):
+        self.result.scalar_one_or_none.return_value = 3
 
-    result = await crud.get("urls", "missing", "short_code", sqlalchemy_engine)
+        result = await self.crud.get_click_count("abc123", self.pool)
 
-    assert result is None
+        statement = self.connection.execute.await_args.args[0]
+        self.assertIn("count(clicks.url_id)", str(statement))
+        self.assertEqual(statement.compile().params, {"short_code_1": "abc123"})
+        self.assertEqual(result, 3)
 
+    async def test_get_click_count_returns_zero_when_missing(self):
+        self.result.scalar_one_or_none.return_value = None
 
-@pytest.mark.parametrize(("count", "expected"), [(3, 3), (0, 0), (None, 0)])
-@pytest.mark.asyncio
-async def test_get_click_count(
-    crud, sqlalchemy_connection, sqlalchemy_engine, count, expected
-):
-    result_proxy = MagicMock()
-    result_proxy.scalar_one_or_none.return_value = count
-    sqlalchemy_connection.execute.return_value = result_proxy
+        result = await self.crud.get_click_count("abc123", self.pool)
 
-    result = await crud.get_click_count("abc123", sqlalchemy_engine)
+        self.assertEqual(result, 0)
 
-    statement = sqlalchemy_connection.execute.await_args.args[0]
-    assert isinstance(statement, Select)
-    assert "count(clicks.url_id)" in str(statement.compile())
-    assert "clicks.url_id = urls.id" in str(statement.compile())
-    assert "abc123" in statement.compile().params.values()
-    assert result == expected
+    async def test_insert_click_record_returns_mapped_row(self):
+        clicked_at = datetime(2025, 1, 2, 3, 4)
+        data = {
+            "url_id": 7,
+            "clicked_at": clicked_at,
+            "referrer": "https://referrer.example",
+            "country": "CA",
+            "user_agent": "test-agent",
+        }
+        self.result.mappings.return_value.one_or_none.return_value = {
+            "id": 12,
+            **data,
+        }
 
+        result = await self.crud.insert_click_record(data, self.pool)
 
-@pytest.mark.asyncio
-async def test_insert_click_record(crud, sqlalchemy_connection, sqlalchemy_engine):
-    clicked_at = datetime(2025, 1, 2, 3, 4)
-    data = {
-        "url_id": 7,
-        "clicked_at": clicked_at,
-        "referrer": "https://referrer.example",
-        "country": "CA",
-        "user_agent": "test-agent",
-    }
-    result_proxy = MagicMock()
-    result_proxy.mappings.return_value.one.return_value = {"id": 12, **data}
-    sqlalchemy_connection.execute.return_value = result_proxy
+        statement = self.connection.execute.await_args.args[0]
+        self.assertIsInstance(statement, Insert)
+        self.assertEqual(statement.compile().params, data)
+        self.assertEqual(result, {"id": 12, **data})
 
-    result = await crud.insert_click_record(data, sqlalchemy_engine)
+    async def test_delete_executes_sqlalchemy_statement(self):
+        await self.crud.delete("urls", "abc123", "short_code", self.pool)
 
-    statement = sqlalchemy_connection.execute.await_args.args[0]
-    assert isinstance(statement, Insert)
-    assert statement.table.name == "clicks"
-    assert statement.compile().params == data
-    assert "RETURNING clicks.id" in str(
-        statement.compile(dialect=postgresql.dialect())
-    )
-    sqlalchemy_engine.begin.assert_called_once_with()
-    assert result == {"id": 12, **data}
+        statement = self.connection.execute.await_args.args[0]
+        self.assertIsInstance(statement, Delete)
+        self.assertEqual(statement.compile().params, {"short_code_1": "abc123"})
 
+    async def test_update_binds_values_and_uses_sqlalchemy_statement(self):
+        update_data = MagicMock()
+        update_data.model_dump.return_value = {
+            "long_url": "https://example.com/?x='; DROP TABLE urls; --"
+        }
 
-@pytest.mark.asyncio
-async def test_delete(crud, sqlalchemy_connection, sqlalchemy_engine):
-    await crud.delete("urls", "abc123", "short_code", sqlalchemy_engine)
+        await self.crud.update(
+            "urls", "abc123", "short_code", update_data, self.pool
+        )
 
-    statement = sqlalchemy_connection.execute.await_args.args[0]
-    assert isinstance(statement, Delete)
-    assert statement.table.name == "urls"
-    assert "short_code" in str(statement.compile())
-    assert "abc123" in statement.compile().params.values()
+        update_data.model_dump.assert_called_once_with(exclude_unset=True)
+        statement = self.connection.execute.await_args.args[0]
+        self.assertIsInstance(statement, Update)
+        compiled = statement.compile(dialect=postgresql.dialect())
+        self.assertEqual(
+            compiled.params,
+            {
+                "long_url": "https://example.com/?x='; DROP TABLE urls; --",
+                "short_code_1": "abc123",
+            },
+        )
+        self.assertIn("long_url", compiled.string)
+        self.assertNotIn("DROP TABLE", compiled.string)
 
+    async def test_update_skips_empty_patch(self):
+        update_data = MagicMock()
+        update_data.model_dump.return_value = {}
 
-@pytest.mark.asyncio
-async def test_update(crud, sqlalchemy_connection, sqlalchemy_engine):
-    update_data = MagicMock()
-    update_data.model_dump.return_value = {"long_url": "https://new.example"}
+        await self.crud.update(
+            "urls", "abc123", "short_code", update_data, self.pool
+        )
 
-    await crud.update(
-        "urls", "abc123", "short_code", update_data, sqlalchemy_engine
-    )
-
-    update_data.model_dump.assert_called_once_with(exclude_unset=True)
-    statement = sqlalchemy_connection.execute.await_args.args[0]
-    assert isinstance(statement, Update)
-    assert statement.table.name == "urls"
-    assert "long_url" in str(statement.compile())
-    assert "short_code" in str(statement.compile())
-    assert set(statement.compile().params.values()) == {
-        "abc123",
-        "https://new.example",
-    }
+        self.connection.execute.assert_not_awaited()

@@ -1,4 +1,4 @@
-# docker-compose.yml
+# docker-compose.yml  #
 services:
   postgres:
     image: postgres:16
@@ -21,3 +21,12 @@ services:
 volumes:
   pg-data:
   redis:
+
+
+#CONTAINER IS WORKING
+
+#C:\Users\jayni\code\url-shortener> cd C:\Users\jayni\code\url-shortener\url-shortener\backend                                      
+#(.venv) PS C:\Users\jayni\code\url-shortener\url-shortener\backend> docker compose up -d
+#[+] up 2/2
+# ✔ Container url-shortener-redis-1    Running                                                                                             0.0s
+ #✔ Container url-shortener-postgres-1 Running        

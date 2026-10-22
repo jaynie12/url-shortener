@@ -1,5 +1,3 @@
-import asyncio
-
 #https://redis.io/docs/latest/develop/use-cases/rate-limiter/redis-py/#fixed-window-counter   Redis management of rate limiting
 
 SCRIPT = """
@@ -35,7 +33,7 @@ class RedisCache:
 
 
     async def update_string(self, cache_key: str, ttl: int, value: str, redis_client):
-        await redis_client.json().update(cache_key, "$", value)
+        await redis_client.json().set(cache_key, "$", value)
         await redis_client.expire(cache_key, ttl)  
 
     async def is_allowed(self, client, key: str, limit: int, window_seconds: int) -> dict:
