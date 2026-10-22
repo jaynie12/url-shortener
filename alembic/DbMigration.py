@@ -25,11 +25,10 @@ def create_table_urls():
     CREATE TABLE urls (
         id BIGSERIAL PRIMARY KEY,
         user_id BIGINT REFERENCES users(id),
-        short_code TEXT NOT NULL,
+        short_code TEXT NOT NULL UNIQUE,
         long_url TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        expires_at TIMESTAMPTZ,
-        CONSTRAINT uq_urls_short_code UNIQUE (short_code)
+        expires_at TIMESTAMPTZ
     );
     """
 

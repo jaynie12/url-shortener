@@ -1,7 +1,8 @@
 /venv
 .venv
-__pycache__/
-*.py[cod]
+__pycache__
+/__pycache__
+*.pyc
 .env
 .pytest_cache
 .__pycache__

@@ -44,6 +44,11 @@ Strangely slow but its more of a concurrent problem because 1 request is <1 seco
   99%     74
  100%     74 (longest request)
 
+To check whilst doing the url all together:
+- DB load? EG connection pool not large enough 
+- Cache expiry too short or longest
+
+
 
  Why report p95/p99 instead of the average? What did the cache
 actually buy at p99?

@@ -14,7 +14,7 @@ class CreateClickRecordRequest(BaseModel):
     user_agent: str | None = None
 
 class UpdateUrlRequest(BaseModel):
-    long_url: str
+    long_url: str | None = None
 
 class DeleteUrlRequest(BaseModel):
     short_code: str
