@@ -1,11 +1,11 @@
-from datetime import datetime
 import json
+from datetime import datetime
 
-from fastapi import HTTPException, Request
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse
-from backend.db import PostgresCRUD as db
 from CacheConn import RedisCache as cache
+from db import PostgresCRUD as db
+from fastapi import HTTPException, Request
+from fastapi.responses import RedirectResponse
+
 
 class UrlService:
     def __init__(self):
@@ -21,57 +21,69 @@ class UrlService:
     async def create_url(self, short_code: str, long_url: str, request: Request):
         # Check that short_code is not already in use
         pool = self.get_pool(request)
+        created_at = datetime.now()
+        expired_at  = created_at.replace(year=created_at.year + 1)  # Set expiration to 1 year from now
         
         existing_url = await self.db.get("urls", short_code, "short_code", pool)
         if existing_url:
             raise HTTPException(
-                status_code=400,
+                status_code=409,
                 detail="Short code already in use"
             )
-        rate_limiter = await self.rate_limit_check(request)
-        if not rate_limiter:
-            raise HTTPException(
-                status_code=429,
-                detail="Too many requests. Please try again later."
-            )
-        await self.db.create({"short_code": short_code, "long_url": long_url}, pool)
+        try:
+            create_url = await self.db.create({"short_code": short_code, "long_url": long_url, "created_at": created_at, "expired_at": expired_at}, pool)
+            if create_url:
+                return {  "message": "Short code created successfully"}
 
-    async def get_url(self, short_code: str, request:Request):
+        except Exception as error:
+            raise HTTPException(
+                status_code=409,
+                detail="Short code already in use"
+            ) from error
+
+    async def get_url(self, short_code: str, request:Request) -> RedirectResponse:
         # Check cache first
         pool =  self.get_pool(request)
         redis_client = self.get_redis_client(request)
         cached_url = await self.cache.get(short_code, redis_client)
+        print(f"Cached URL: {cached_url}")
         if cached_url:
-           return RedirectResponse(url=cached_url.long_url, status_code=302)
+            await self.insert_click_record(int(cached_url["id"]), request)
+            return RedirectResponse(url=cached_url["long_url"], status_code=302)
 
         # If not in cache, check database
         url_data = await self.db.get("urls", short_code, "short_code", pool)
+        print(f"URL data from DB: {url_data}")
+        url_id = url_data["id"];
         if url_data is None:
             raise HTTPException(
                 status_code=404,
                 detail="Short code not found"
             )
         
-        #move into own function
-        click_record = await self.db.insert_click_record({
-            "url_id": await self.get_url_id_from_short_code(short_code, request),
-            "referrer": request.headers.get("referer"),
-            "country": request.headers.get("country"),
-            "user_agent": request.headers.get("user-agent"),
-            "clicked_at": datetime.now()
-        }, pool)
+        await self.insert_click_record(url_id, request)
 
         # Cache the result for future requests
         await self.cache.set_string(
                 short_code,
                 600,
-                json.dumps(url_data, default=str),
+                url_data,
                 redis_client,
             )
 
-        print(f"Click record created: {click_record}")
-
         return RedirectResponse(url=url_data["long_url"], status_code=302) #Permanent Page Moves
+
+    async def insert_click_record(self, url_id: int, request: Request):
+        pool = self.get_pool(request)
+        click_record = await self.db.insert_click_record({
+            "url_id": url_id,
+            "referrer": request.headers.get("referer"),
+            "country": request.headers.get("country"),
+            "user_agent": request.headers.get("user-agent"),
+            "clicked_at": datetime.now()
+        }, pool)
+        
+        return click_record
 
     async def get_click_count(self, short_code: str, request: Request):
         pool = self.get_pool(request)
@@ -101,12 +113,4 @@ class UrlService:
                 detail="Short code not found"
             )
         return url_data["id"]
-        
-    async def rate_limit_check(self, request: Request):
-        redis_client = self.get_redis_client(request)
-        ip_address_key = f"ip:{request.client.host}"
-        limiter = await self.cache.is_allowed(redis_client, ip_address_key, 10, 60)  # 10 requests per minute
-        if limiter["allowed"]:
-            return True
-        else:
-            return False
+    

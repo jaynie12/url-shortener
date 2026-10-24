@@ -1,5 +1,6 @@
 Summary
 
+URL Shortener 
 
 Schema
 
@@ -7,9 +8,12 @@ Schema
 Caching Strategy
 
 
-\
-Installation Steps
 
+Installation Steps:
+
+1) 
+2)
+3) pip install -e . 
 
 Navigatation of the repo
 

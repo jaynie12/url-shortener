@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Request,Depends
+from fastapi import APIRouter, Request
+from fastapi.responses import RedirectResponse
 from UrlService import UrlService
-from models import CreateUrlRequest, CreateClickRecordRequest, UpdateUrlRequest
+from models import CreateUrlRequest, UpdateUrlRequest
+import json
 
 router = APIRouter()
 ## TEMP calling service here  - probably best to make it a getter/setter
@@ -17,22 +19,22 @@ async def create_url(
         request
     )
 @router.get("/{short_code}")
-async def get_url(short_code: str, request: Request):
+async def get_url(short_code: str, request: Request) -> RedirectResponse:
     long_url = await service.get_url(short_code,request)
     print(f"Redirecting to: {long_url}")
     return long_url
 
 @router.get("/urls/{short_code}/stats")
-async def get_url_stats(short_code: str, request: Request):
+async def get_url_stats(short_code: str, request: Request) -> dict:
     click_count = await service.get_click_count(short_code,request)
     return {"click_count": click_count["click_count"]}
 
 @router.delete("/urls/{short_code}")
-async def delete_url(short_code: str, request: Request):
+async def delete_url(short_code: str, request: Request) -> dict:
     await service.delete_short_code("urls", short_code, "short_code", request)
     return {"message": "URL deleted"}
 
 @router.patch("/urls/{short_code}")
-async def update_url(short_code: str, data: UpdateUrlRequest, request: Request):
+async def update_url(short_code: str, data: UpdateUrlRequest, request: Request) -> dict:
     await service.update_short_code("urls", short_code, "short_code", data, request)
     return {"message": "URL updated"}
