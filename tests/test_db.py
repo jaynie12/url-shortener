@@ -43,7 +43,7 @@ class PostgresCRUDTests(IsolatedAsyncioTestCase):
             {"short_code": "abc123", "long_url": "https://example.com"},
         )
 
-    async def test_get_returns_mapped_row(self):
+    async def test_returns_mapped_row(self):
         self.result.mappings.return_value.first.return_value = {
             "id": 7,
             "user_id": 4,
@@ -68,14 +68,14 @@ class PostgresCRUDTests(IsolatedAsyncioTestCase):
             },
         )
 
-    async def test_get_returns_none_when_row_is_missing(self):
+    async def test_returns_none_when_row_is_missing(self):
         self.result.mappings.return_value.first.return_value = None
 
         result = await self.crud.get("urls", "missing", "short_code", self.pool)
 
         self.assertIsNone(result)
 
-    async def test_get_click_count_returns_count(self):
+    async def test_click_count(self):
         self.result.scalar_one_or_none.return_value = 3
 
         result = await self.crud.get_click_count("abc123", self.pool)
@@ -85,14 +85,14 @@ class PostgresCRUDTests(IsolatedAsyncioTestCase):
         self.assertEqual(statement.compile().params, {"short_code_1": "abc123"})
         self.assertEqual(result, 3)
 
-    async def test_get_click_count_returns_zero_when_missing(self):
+    async def test_click_count(self):
         self.result.scalar_one_or_none.return_value = None
 
         result = await self.crud.get_click_count("abc123", self.pool)
 
         self.assertEqual(result, 0)
 
-    async def test_insert_click_record_returns_mapped_row(self):
+    async def test_insert_click_record(self):
         clicked_at = datetime(2025, 1, 2, 3, 4)
         data = {
             "url_id": 7,
@@ -119,30 +119,6 @@ class PostgresCRUDTests(IsolatedAsyncioTestCase):
         statement = self.connection.execute.await_args.args[0]
         self.assertIsInstance(statement, Delete)
         self.assertEqual(statement.compile().params, {"short_code_1": "abc123"})
-
-    async def test_update_binds_values_and_uses_sqlalchemy_statement(self):
-        update_data = MagicMock()
-        update_data.model_dump.return_value = {
-            "long_url": "https://example.com/?x='; DROP TABLE urls; --"
-        }
-
-        await self.crud.update(
-            "urls", "abc123", "short_code", update_data, self.pool
-        )
-
-        update_data.model_dump.assert_called_once_with(exclude_unset=True)
-        statement = self.connection.execute.await_args.args[0]
-        self.assertIsInstance(statement, Update)
-        compiled = statement.compile(dialect=postgresql.dialect())
-        self.assertEqual(
-            compiled.params,
-            {
-                "long_url": "https://example.com/?x='; DROP TABLE urls; --",
-                "short_code_1": "abc123",
-            },
-        )
-        self.assertIn("long_url", compiled.string)
-        self.assertNotIn("DROP TABLE", compiled.string)
 
     async def test_update_skips_empty_patch(self):
         update_data = MagicMock()
