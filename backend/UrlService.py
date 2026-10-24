@@ -1,10 +1,13 @@
 import json
+import logging
 from datetime import datetime
 
 from CacheConn import RedisCache as cache
 from db import PostgresCRUD as db
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
+
+logger = logging.getLogger(__name__)
 
 
 class UrlService:
@@ -33,6 +36,10 @@ class UrlService:
         try:
             create_url = await self.db.create({"short_code": short_code, "long_url": long_url, "created_at": created_at, "expired_at": expired_at}, pool)
             if create_url:
+                logger.info(
+                    "URL created",
+                    extra={"event": "url_created", "short_code": short_code},
+                )
                 return {  "message": "Short code created successfully"}
 
         except Exception as error:
@@ -46,20 +53,26 @@ class UrlService:
         pool =  self.get_pool(request)
         redis_client = self.get_redis_client(request)
         cached_url = await self.cache.get(short_code, redis_client)
-        print(f"Cached URL: {cached_url}")
         if cached_url:
             await self.insert_click_record(int(cached_url["id"]), request)
+            logger.info(
+                "URL redirected",
+                extra={
+                    "event": "url_redirected",
+                    "short_code": short_code,
+                    "source": "cache",
+                },
+            )
             return RedirectResponse(url=cached_url["long_url"], status_code=302)
 
         # If not in cache, check database
         url_data = await self.db.get("urls", short_code, "short_code", pool)
-        print(f"URL data from DB: {url_data}")
-        url_id = url_data["id"];
         if url_data is None:
             raise HTTPException(
                 status_code=404,
                 detail="Short code not found"
             )
+        url_id = url_data["id"]
         
         await self.insert_click_record(url_id, request)
 
@@ -71,6 +84,14 @@ class UrlService:
                 redis_client,
             )
 
+        logger.info(
+            "URL redirected",
+            extra={
+                "event": "url_redirected",
+                "short_code": short_code,
+                "source": "database",
+            },
+        )
         return RedirectResponse(url=url_data["long_url"], status_code=302) #Permanent Page Moves
 
     async def insert_click_record(self, url_id: int, request: Request):
@@ -95,6 +116,10 @@ class UrlService:
         redis_client = self.get_redis_client(request)
         await self.db.delete(table, value, column, pool)
         await self.cache.delete(value, redis_client)
+        logger.info(
+            "URL deleted",
+            extra={"event": "url_deleted", "short_code": value},
+        )
         return {"message": "Short code deleted"}
 
     async def update_short_code(self, table: str, value: str, column: str, data: dict, request: Request):
@@ -102,6 +127,10 @@ class UrlService:
         redis_client = self.get_redis_client(request)
         await self.db.update(table, value, column, data, pool)
         await self.cache.update_string(value, 600, json.dumps(data, default=str), redis_client)
+        logger.info(
+            "URL updated",
+            extra={"event": "url_updated", "short_code": value},
+        )
         return {"message": "Short code updated"}
 
     async def get_url_id_from_short_code(self, short_code: str, request: Request):

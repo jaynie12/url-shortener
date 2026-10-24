@@ -2,7 +2,6 @@ from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from UrlService import UrlService
 from models import CreateUrlRequest, UpdateUrlRequest
-import json
 
 router = APIRouter()
 ## TEMP calling service here  - probably best to make it a getter/setter
@@ -21,7 +20,6 @@ async def create_url(
 @router.get("/{short_code}")
 async def get_url(short_code: str, request: Request) -> RedirectResponse:
     long_url = await service.get_url(short_code,request)
-    print(f"Redirecting to: {long_url}")
     return long_url
 
 @router.get("/urls/{short_code}/stats")
