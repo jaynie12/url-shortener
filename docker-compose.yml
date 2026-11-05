@@ -1,0 +1,32 @@
+# docker-compose.yml  #
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+    ports:
+      - 5435:5432
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    restart: on-failure:3
+  redis:
+    image: redis:latest
+    command: redis-server
+    volumes:
+      - redis:/var/lib/redis
+    ports:
+      - 6379:6379
+volumes:
+  pg-data:
+  redis:
+
+
+#CONTAINER IS WORKING
+
+#C:\Users\jayni\code\url-shortener> cd C:\Users\jayni\code\url-shortener\url-shortener\backend                                      
+#(.venv) PS C:\Users\jayni\code\url-shortener\url-shortener\backend> docker compose up -d
+#[+] up 2/2
+# ✔ Container url-shortener-redis-1    Running                                                                                             0.0s
+ #✔ Container url-shortener-postgres-1 Running        

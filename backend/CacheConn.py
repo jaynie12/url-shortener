@@ -1,5 +1,3 @@
-import asyncio
-
 #https://redis.io/docs/latest/develop/use-cases/rate-limiter/redis-py/#fixed-window-counter   Redis management of rate limiting
 
 SCRIPT = """
@@ -20,25 +18,34 @@ end
 return {1, ttl}
 """
 class RedisCache:
+    def __init__(self):
+        self.script = SCRIPT
+        
     async def get(self, cache_key,  redis_client):
-        return await redis_client.get(cache_key)
+        return await redis_client.json().get(cache_key)
 
     async def delete(self, cache_key, redis_client):
         await redis_client.delete(cache_key)
 
     async def set_string(self, cache_key: str, ttl: int, value: str,redis_client):
-        await redis_client.set(cache_key, value, ex=ttl)
+        await redis_client.json().set(cache_key, "$", value)
+        await redis_client.expire(cache_key, ttl)  
+
 
     async def update_string(self, cache_key: str, ttl: int, value: str, redis_client):
-        await redis_client.set(cache_key, value, ex=ttl)
+        await redis_client.json().set(cache_key, "$", value)
+        await redis_client.expire(cache_key, ttl)  
 
     async def is_allowed(self, client, key: str, limit: int, window_seconds: int) -> dict:
-        script = client.register_script(SCRIPT)
-        allowed = await script(keys=[key], args=[limit, window_seconds], client=client)
-        return {"allowed": bool(allowed[0])}
+        script = client.register_script(self.script)
+        #  returns [allowed (1/0), TTL in milliseconds] 
+        ip_allowed = await script(keys=[key], args=[limit, window_seconds], client=client)
+        #ip_allowed[0] is either 1 (allowed) or 0 (not allowed)
+        allowed, ttl = ip_allowed[0], ip_allowed[1]
+        return {"allowed": bool(allowed)}
 
 #Jaynie note
 #INCR creates a new key with value 1 if it doesn't exist, and sets the expiration time to the specified window.
-# # If the key already exists, it increments the value by 1 and returns the current count.
-# # If the count exceeds the limit, it returns 0 (not allowed) along with the remaining time to live (TTL) for the key. 
+# If the key already exists, it increments the value by 1 and returns the current count.
+# If the count exceeds the limit, it returns 0 (not allowed) along with the remaining time to live (TTL) for the key. 
 # #Otherwise, it returns 1 (allowed) and a TTL of 0.
